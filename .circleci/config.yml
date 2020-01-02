@@ -1,0 +1,64 @@
+version: 2.1
+
+orbs:
+  haskell: haskell-works/haskell-build@4.0.2
+  docker: haskell-works/docker-publish@1.1.0
+  aws-s3: circleci/aws-s3@1.0.0
+
+executors:
+  ghc-8_6_5_old:
+    docker:
+      - image: quay.io/haskell_works/ghc-8.6.5:ubuntu-16.04
+
+jobs:
+  publish-release-build-to-s3:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      - attach_workspace:
+          at: /tmp
+
+      - run: mv /tmp/build/dist/${CIRCLE_PROJECT_REPONAME} bootstrap
+      - run: zip -j ${CIRCLE_PROJECT_REPONAME}.zip bootstrap
+
+      - aws-s3/copy:
+          from: ${CIRCLE_PROJECT_REPONAME}.zip
+          to: s3://dl.john-ky.io/haskell-works/lambdas/${CIRCLE_PROJECT_REPONAME}/v${CIRCLE_BUILD_NUM}/${CIRCLE_PROJECT_REPONAME}.zip
+
+  publish-dev-build-to-s3:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      - attach_workspace:
+          at: /tmp
+
+      - run: mv /tmp/build/dist/${CIRCLE_PROJECT_REPONAME} bootstrap
+      - run: zip -j ${CIRCLE_PROJECT_REPONAME}.zip bootstrap
+
+      - aws-s3/copy:
+          from: ${CIRCLE_PROJECT_REPONAME}.zip
+          to: s3://dl.john-ky.io/haskell-works/lambdas/${CIRCLE_PROJECT_REPONAME}/v${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1:0:5}/${CIRCLE_PROJECT_REPONAME}.zip
+
+workflows:
+  build-app-pipelines:
+    jobs:
+      - haskell/build-with-binary-cache:
+          name: Build
+          executor: ghc-8_6_5_old
+          context: haskell-ci
+          binary-cache-uri-suffix: -ubuntu-16.04
+          write-result-workspace: true
+          build-dependencies-first: false
+
+      - publish-release-build-to-s3:
+          requires:
+            - Build
+          context: publish-lambda-artefacts
+          filters:
+            branches:
+              only: master
+
+      - publish-dev-build-to-s3:
+          requires:
+            - Build
+          context: publish-lambda-artefacts
