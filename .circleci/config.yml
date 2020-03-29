@@ -1,14 +1,9 @@
 version: 2.1
 
 orbs:
-  haskell: haskell-works/haskell-build@4.0.2
+  haskell: haskell-works/haskell-build@4.1.7
   docker: haskell-works/docker-publish@1.1.0
   aws-s3: circleci/aws-s3@1.0.0
-
-executors:
-  ghc-8_6_5_old:
-    docker:
-      - image: quay.io/haskell_works/ghc-8.6.5:ubuntu-16.04
 
 jobs:
   publish-release-build-to-s3:
@@ -44,7 +39,7 @@ workflows:
     jobs:
       - haskell/build-with-binary-cache:
           name: Build
-          executor: ghc-8_6_5_old
+          executor: haskell/ubuntu-16_04-ghc-8_8_3
           context: haskell-ci
           binary-cache-uri-suffix: -ubuntu-16.04
           write-result-workspace: true
